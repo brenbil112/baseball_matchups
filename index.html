@@ -16,7 +16,9 @@
     endDateObj.setDate(today.getDate() + 7); // Look ahead 7 days
     const endDate = endDateObj.toISOString().split('T')[0];
 
-    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=probablePitcher&startDate=${startDate}&endDate=${endDate}`;
+    const proxyUrl = 'https://corsproxy.io/?';
+    const targetUrl = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=probablePitcher&startDate=${startDate}&endDate=${endDate}`;
+    const url = proxyUrl + encodeURIComponent(targetUrl);
 
     fetch(url)
       .then(response => {
