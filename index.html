@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MLB Probable Pitchers Lookup</title>
+  <title>MLB Opponent Pitchers Lookup</title>
 </head>
 <body>
-  <h1>MLB Probable Pitchers</h1>
+  <h1>Opponent Starting Pitchers</h1>
 
   <label for="teamSelect">Select a team:</label>
   <select id="teamSelect">
@@ -42,15 +42,15 @@
     <option value="158">Milwaukee Brewers</option>
   </select>
 
-  <button id="fetchButton">Fetch Next 5 Games</button>
+  <button id="fetchButton">Fetch Next 3 Games</button>
 
   <table id="resultsTable" border="1" style="margin-top:20px;">
     <thead>
       <tr>
         <th>Date</th>
         <th>Opponent</th>
-        <th>Team Pitcher</th>
         <th>Opponent Pitcher</th>
+        <th>Handedness (R/L)</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -71,7 +71,7 @@
       const today = new Date();
       const startDate = today.toISOString().split('T')[0];
       const endDateObj = new Date(today);
-      endDateObj.setDate(today.getDate() + 7); // 7 days ahead
+      endDateObj.setDate(today.getDate() + 7); // Look a week ahead
       const endDate = endDateObj.toISOString().split('T')[0];
 
       const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=probablePitcher&startDate=${startDate}&endDate=${endDate}`;
@@ -83,28 +83,33 @@
 
           const teamGames = games.filter(game =>
             game.teams.away.team.id == teamId || game.teams.home.team.id == teamId
-          ).slice(0, 5); // Get next 5 games
+          ).slice(0, 3); // Get next 3 games only
 
           resultsTable.innerHTML = ''; // Clear previous results
 
+          if (teamGames.length === 0) {
+            resultsTable.innerHTML = '<tr><td colspan="4">No games found for the selected team.</td></tr>';
+            return;
+          }
+
           teamGames.forEach(game => {
             const isHome = game.teams.home.team.id == teamId;
-            const opponent = isHome ? game.teams.away.team.name : game.teams.home.team.name;
+            const opponentInfo = isHome ? game.teams.away : game.teams.home;
 
-            const teamPitcher = isHome
-              ? (game.teams.home.probablePitcher ? game.teams.home.probablePitcher.fullName : 'TBD')
-              : (game.teams.away.probablePitcher ? game.teams.away.probablePitcher.fullName : 'TBD');
-
-            const opponentPitcher = isHome
-              ? (game.teams.away.probablePitcher ? game.teams.away.probablePitcher.fullName : 'TBD')
-              : (game.teams.home.probablePitcher ? game.teams.home.probablePitcher.fullName : 'TBD');
+            const opponentName = opponentInfo.team.name;
+            const opponentPitcher = opponentInfo.probablePitcher
+              ? opponentInfo.probablePitcher.fullName
+              : 'TBD';
+            const handedness = opponentInfo.probablePitcher
+              ? (opponentInfo.probablePitcher.pitchHand.code === "R" ? "R" : "L")
+              : 'TBD';
 
             const row = `
               <tr>
                 <td>${game.gameDate.split('T')[0]}</td>
-                <td>${opponent}</td>
-                <td>${teamPitcher}</td>
+                <td>${opponentName}</td>
                 <td>${opponentPitcher}</td>
+                <td>${handedness}</td>
               </tr>
             `;
             resultsTable.innerHTML += row;
