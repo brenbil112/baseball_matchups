@@ -1,126 +1,72 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>MLB Opponent Pitchers Lookup</title>
-</head>
-<body>
-  <h1>Opponent Starting Pitchers</h1>
+<script>
+  const fetchButton = document.getElementById('fetchButton');
+  const teamSelect = document.getElementById('teamSelect');
+  const resultsTable = document.getElementById('resultsTable').querySelector('tbody');
 
-  <label for="teamSelect">Select a team:</label>
-  <select id="teamSelect">
-    <option value="">--Select--</option>
-    <option value="108">Los Angeles Angels</option>
-    <option value="109">Arizona Diamondbacks</option>
-    <option value="110">Baltimore Orioles</option>
-    <option value="111">Boston Red Sox</option>
-    <option value="112">Chicago Cubs</option>
-    <option value="113">Cincinnati Reds</option>
-    <option value="114">Cleveland Guardians</option>
-    <option value="115">Colorado Rockies</option>
-    <option value="116">Detroit Tigers</option>
-    <option value="117">Houston Astros</option>
-    <option value="118">Kansas City Royals</option>
-    <option value="119">Los Angeles Dodgers</option>
-    <option value="120">Washington Nationals</option>
-    <option value="121">New York Mets</option>
-    <option value="133">Oakland Athletics</option>
-    <option value="134">Pittsburgh Pirates</option>
-    <option value="135">San Diego Padres</option>
-    <option value="136">Seattle Mariners</option>
-    <option value="137">San Francisco Giants</option>
-    <option value="138">St. Louis Cardinals</option>
-    <option value="139">Tampa Bay Rays</option>
-    <option value="140">Texas Rangers</option>
-    <option value="141">Toronto Blue Jays</option>
-    <option value="142">Minnesota Twins</option>
-    <option value="143">Philadelphia Phillies</option>
-    <option value="144">Atlanta Braves</option>
-    <option value="145">Chicago White Sox</option>
-    <option value="146">Miami Marlins</option>
-    <option value="147">New York Yankees</option>
-    <option value="158">Milwaukee Brewers</option>
-  </select>
+  fetchButton.addEventListener('click', () => {
+    const teamId = teamSelect.value;
+    if (!teamId) {
+      alert('Please select a team.');
+      return;
+    }
 
-  <button id="fetchButton">Fetch Next 3 Games</button>
+    const today = new Date();
+    const startDate = today.toISOString().split('T')[0];
+    const endDateObj = new Date(today);
+    endDateObj.setDate(today.getDate() + 7); // Look ahead 7 days
+    const endDate = endDateObj.toISOString().split('T')[0];
 
-  <table id="resultsTable" border="1" style="margin-top:20px;">
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Opponent</th>
-        <th>Opponent Pitcher</th>
-        <th>Handedness (R/L)</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=probablePitcher&startDate=${startDate}&endDate=${endDate}`;
 
-  <script>
-    const fetchButton = document.getElementById('fetchButton');
-    const teamSelect = document.getElementById('teamSelect');
-    const resultsTable = document.getElementById('resultsTable').querySelector('tbody');
+    fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        const games = data.dates.flatMap(date => date.games);
 
-    fetchButton.addEventListener('click', () => {
-      const teamId = teamSelect.value;
-      if (!teamId) {
-        alert('Please select a team.');
-        return;
-      }
+        const teamGames = games.filter(game =>
+          game.teams.away.team.id == teamId || game.teams.home.team.id == teamId
+        ).slice(0, 3); // Only next 3 games
 
-      const today = new Date();
-      const startDate = today.toISOString().split('T')[0];
-      const endDateObj = new Date(today);
-      endDateObj.setDate(today.getDate() + 7); // Look a week ahead
-      const endDate = endDateObj.toISOString().split('T')[0];
+        resultsTable.innerHTML = ''; // Clear previous results
 
-      const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=probablePitcher&startDate=${startDate}&endDate=${endDate}`;
+        if (teamGames.length === 0) {
+          resultsTable.innerHTML = '<tr><td colspan="4">No games found for the selected team.</td></tr>';
+          return;
+        }
 
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          const games = data.dates.flatMap(date => date.games);
+        teamGames.forEach(game => {
+          const isHome = game.teams.home.team.id == teamId;
+          const opponentInfo = isHome ? game.teams.away : game.teams.home;
 
-          const teamGames = games.filter(game =>
-            game.teams.away.team.id == teamId || game.teams.home.team.id == teamId
-          ).slice(0, 3); // Get next 3 games only
+          const opponentName = opponentInfo.team.name;
 
-          resultsTable.innerHTML = ''; // Clear previous results
+          const opponentPitcher = opponentInfo.probablePitcher
+            ? opponentInfo.probablePitcher.fullName
+            : 'TBD';
 
-          if (teamGames.length === 0) {
-            resultsTable.innerHTML = '<tr><td colspan="4">No games found for the selected team.</td></tr>';
-            return;
-          }
+          const handedness = opponentInfo.probablePitcher && opponentInfo.probablePitcher.pitchHand
+            ? opponentInfo.probablePitcher.pitchHand.code
+            : 'TBD';
 
-          teamGames.forEach(game => {
-            const isHome = game.teams.home.team.id == teamId;
-            const opponentInfo = isHome ? game.teams.away : game.teams.home;
-
-            const opponentName = opponentInfo.team.name;
-            const opponentPitcher = opponentInfo.probablePitcher
-              ? opponentInfo.probablePitcher.fullName
-              : 'TBD';
-            const handedness = opponentInfo.probablePitcher
-              ? (opponentInfo.probablePitcher.pitchHand.code === "R" ? "R" : "L")
-              : 'TBD';
-
-            const row = `
-              <tr>
-                <td>${game.gameDate.split('T')[0]}</td>
-                <td>${opponentName}</td>
-                <td>${opponentPitcher}</td>
-                <td>${handedness}</td>
-              </tr>
-            `;
-            resultsTable.innerHTML += row;
-          });
-        })
-        .catch(error => {
-          console.error('Error fetching games:', error);
-          alert('Something went wrong. Please try again.');
+          const row = `
+            <tr>
+              <td>${game.gameDate.split('T')[0]}</td>
+              <td>${opponentName}</td>
+              <td>${opponentPitcher}</td>
+              <td>${handedness}</td>
+            </tr>
+          `;
+          resultsTable.innerHTML += row;
         });
-    });
-  </script>
-
-</body>
-</html>
+      })
+      .catch(error => {
+        console.error('Error fetching games:', error);
+        alert('Something went wrong. Please try again.');
+      });
+  });
+</script>
